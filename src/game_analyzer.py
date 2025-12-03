@@ -10,10 +10,14 @@ class GameAnalyzer:
         """分析单局游戏数据"""
         try:
             if not match_data or 'info' not in match_data:
+                self.logger.warning("无效的对局数据: 缺少'info'字段")
                 return None
                 
             info = match_data['info']
             participants = info.get('participants', [])
+            match_id = info.get('gameId')
+            
+            self.logger.debug(f"开始分析对局 {match_id}，共有 {len(participants)} 名玩家")
             
             # 分析每个玩家
             player_analysis = []
@@ -21,12 +25,14 @@ class GameAnalyzer:
                 analysis = self._analyze_player(participant)
                 if analysis:
                     player_analysis.append(analysis)
+            
+            self.logger.debug(f"完成玩家分析，共分析 {len(player_analysis)} 名玩家")
                     
             # 团队分析
             team_analysis = self._analyze_teams(participants)
             
-            return {
-                'match_id': info.get('gameId'),
+            result = {
+                'match_id': match_id,
                 'game_duration': info.get('gameDuration', 0),
                 'game_mode': info.get('gameMode', ''),
                 'game_type': info.get('gameType', ''),
@@ -38,13 +44,21 @@ class GameAnalyzer:
                 'total_assists': sum(p.get('assists', 0) for p in participants)
             }
             
+            self.logger.info(f"成功完成对局 {match_id} 的分析")
+            return result
+            
         except Exception as e:
-            self.logger.error(f"对局分析失败: {str(e)}")
+            self.logger.error(f"对局分析失败: {str(e)}", exc_info=True)
             return None
             
     def _analyze_player(self, participant: Dict) -> Optional[Dict]:
         """分析单个玩家表现"""
         try:
+            summoner_name = participant.get('summonerName', '未知')
+            champion_name = participant.get('championName', '未知')
+            
+            self.logger.debug(f"分析玩家 {summoner_name} ({champion_name})")
+            
             stats = participant.get('stats', {})
             
             # 基础数据

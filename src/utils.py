@@ -3,15 +3,15 @@ import os
 from datetime import datetime
 from config import Config
 
-def setup_logging():
+def setup_logger():
     """设置日志系统"""
     # 确保日志目录存在
     log_dir = os.path.dirname(Config.LOG_FILE)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir)
         
-    # 配置日志格式
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    # 配置日志格式，增加更多上下文信息
+    log_format = '%(asctime)s - %(name)s - %(funcName)s - %(levelname)s - %(message)s'
     date_format = '%Y-%m-%d %H:%M:%S'
     
     # 配置日志处理器

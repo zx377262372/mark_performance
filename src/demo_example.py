@@ -1,9 +1,9 @@
 import asyncio
 from datetime import datetime
 
-from game_analyzer import GameAnalyzer
-from prompt_generater import PromptGenerator
-from wechat_sender import WeChatSender
+from .game_analyzer import GameAnalyzer
+from .prompt_generator import PromptGenerator
+from .wechat_sender import WeChatSender
 
 
 def build_sample_match():

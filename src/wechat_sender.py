@@ -8,6 +8,16 @@ class WeChatSender:
         self.webhook_url = Config.WECHAT_WEBHOOK_URL
         self.group_name = Config.WECHAT_GROUP_NAME
         self.logger = logging.getLogger(__name__)
+        self.session = None
+        
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+            self.session = None
         
     async def send_analysis_result(self, analysis_result: Dict) -> bool:
         """发送分析结果到微信群"""
@@ -122,38 +132,82 @@ class WeChatSender:
             self.logger.error(f"消息格式化失败: {str(e)}")
             return None
             
-    async def _send_to_wechat(self, message: str) -> bool:
-        """发送到微信群"""
+    async def _send_to_wechat(self, message: str, max_retries: int = 2) -> bool:
+        """发送到微信群，支持重试机制"""
         if not self.webhook_url:
             self.logger.warning("未配置微信Webhook URL")
             return False
             
-        try:
-            data = {
-                "msgtype": "text",
-                "text": {
-                    "content": message
-                }
-            }
+        retry_delay = 1  # 初始重试延迟（秒）
             
-            # 如果有群名，添加到消息中
-            if self.group_name:
-                data["text"]["mentioned_list"] = ["@all"]
+        for retry in range(max_retries + 1):
+            try:
+                data = {
+                    "msgtype": "text",
+                    "text": {
+                        "content": message
+                    }
+                }
                 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.webhook_url,
-                    json=data,
-                    headers={"Content-Type": "application/json"}
-                ) as response:
+                # 如果有群名，添加到消息中
+                if self.group_name:
+                    data["text"]["mentioned_list"] = ["@all"]
                     
-                    if response.status == 200:
-                        result = await response.json()
-                        return result.get('errcode', -1) == 0
-                    else:
-                        self.logger.error(f"微信API请求失败: {response.status}")
-                        return False
+                # 使用现有的会话或创建新会话
+                if self.session:
+                    async with self.session.post(
+                        self.webhook_url,
+                        json=data,
+                        headers={"Content-Type": "application/json"}
+                    ) as response:
                         
-        except Exception as e:
-            self.logger.error(f"微信API请求异常: {str(e)}")
-            return False
+                        if response.status == 200:
+                            result = await response.json()
+                            if result.get('errcode', -1) == 0:
+                                return True
+                            else:
+                                self.logger.error(f"微信消息发送失败: {result.get('errmsg', '未知错误')}")
+                                return False
+                        elif response.status in [500, 502, 503, 504]:
+                            # 服务器错误，重试
+                            self.logger.warning(f"微信服务器错误 {response.status}，等待 {retry_delay} 秒后重试 (剩余次数: {max_retries - retry})")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # 指数退避
+                        else:
+                            self.logger.error(f"微信API请求失败: {response.status}")
+                            return False
+                else:
+                    # 作为后备，创建临时会话
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            self.webhook_url,
+                            json=data,
+                            headers={"Content-Type": "application/json"}
+                        ) as response:
+                            
+                            if response.status == 200:
+                                result = await response.json()
+                                if result.get('errcode', -1) == 0:
+                                    return True
+                                else:
+                                    self.logger.error(f"微信消息发送失败: {result.get('errmsg', '未知错误')}")
+                                    return False
+                            elif response.status in [500, 502, 503, 504]:
+                                # 服务器错误，重试
+                                self.logger.warning(f"微信服务器错误 {response.status}，等待 {retry_delay} 秒后重试 (剩余次数: {max_retries - retry})")
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2  # 指数退避
+                            else:
+                                self.logger.error(f"微信API请求失败: {response.status}")
+                                return False
+                                
+            except aiohttp.ClientError as e:
+                self.logger.warning(f"微信API请求网络异常: {str(e)}，等待 {retry_delay} 秒后重试 (剩余次数: {max_retries - retry})")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # 指数退避
+            except Exception as e:
+                self.logger.error(f"微信API请求异常: {str(e)}")
+                return False
+                
+        self.logger.error("微信API请求重试次数耗尽")
+        return False

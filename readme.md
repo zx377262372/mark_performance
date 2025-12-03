@@ -33,3 +33,8 @@
 ├── requirements.txt        # 依赖文件
 ├── .env.example           # 环境变量示例
 └── README.md              # 项目说明
+
+# 测试方法
+1. 确保已安装所有依赖：`pip install -r requirements.txt`
+2. 复制 `.env.example` 为 `.env` 并填写必要的环境变量
+3. 运行测试：`python -m unittest discover tests`

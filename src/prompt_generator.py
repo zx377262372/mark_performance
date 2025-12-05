@@ -38,53 +38,65 @@ class PromptGenerator:
             if not analysis_result:
                 return None
 
-            # Build a compact machine-friendly prompt
-            parts = []
-            parts.append("数据如下（JSON）：")
-            parts.append("""{""")
-            parts.append(f'  "match_id": "{analysis_result.get("match_id", "unknown")}",')
-            parts.append(f'  "game_duration": {analysis_result.get("game_duration", 0)},')
-            parts.append(f'  "game_mode": "{analysis_result.get("game_mode", "unknown")}",')
+            # 提取关键数据，构建结构化提示词
+            match_id = analysis_result.get("match_id", "unknown")
+            game_duration = analysis_result.get("game_duration", 0)
+            game_mode = analysis_result.get("game_mode", "unknown")
+            player_analysis = analysis_result.get("player_analysis", [])
+            team_analysis = analysis_result.get("team_analysis", {})
 
-            # players array
-            parts.append('  "players": [')
-            for p in analysis_result.get('player_analysis', []):
-                # include key metrics per player
-                parts.append('    {')
-                parts.append(f'      "summoner_name": "{p.get("summoner_name", "")}",')
-                parts.append(f'      "champion": "{p.get("champion_name", "")}",')
-                parts.append(f'      "role": "{p.get("role", "unknown") if p.get("role") else "unknown"}",')
-                parts.append(f'      "kills": {p.get("kills", 0)},')
-                parts.append(f'      "deaths": {p.get("deaths", 0)},')
-                parts.append(f'      "assists": {p.get("assists", 0)},')
-                parts.append(f'      "kda": {p.get("kda", 0)},')
-                parts.append(f'      "gold_per_minute": {p.get("gold_per_minute", 0)},')
-                parts.append(f'      "damage_per_minute": {p.get("damage_per_minute", 0)},')
-                parts.append(f'      "vision_score": {p.get("vision_score", 0)},')
-                parts.append(f'      "performance_score": {p.get("performance_score", 0)}')
-                parts.append('    },')
-            parts.append('  ],')
+            # 创建玩家数据列表
+            players_data = []
+            for p in player_analysis:
+                players_data.append({
+                    "summoner_name": p.get("summoner_name", ""),
+                    "champion": p.get("champion_name", ""),
+                    "role": p.get("role", "unknown"),
+                    "kills": p.get("kills", 0),
+                    "deaths": p.get("deaths", 0),
+                    "assists": p.get("assists", 0),
+                    "kda": p.get("kda", 0),
+                    "gold_per_minute": p.get("gold_per_minute", 0),
+                    "damage_per_minute": p.get("damage_per_minute", 0),
+                    "vision_score": p.get("vision_score", 0),
+                    "performance_score": p.get("performance_score", 0)
+                })
 
-            # team summary
-            parts.append('  "teams": {')
-            for tname, tdata in analysis_result.get('team_analysis', {}).items():
-                parts.append(f'    "{tname}": {{')
-                parts.append(f'      "total_kills": {tdata.get("total_kills", 0)},')
-                parts.append(f'      "total_deaths": {tdata.get("total_deaths", 0)},')
-                parts.append(f'      "win": {str(bool(tdata.get("win"))).lower()}')
-                parts.append('    },')
-            parts.append('  }')
-            parts.append('}')
+            # 创建团队数据
+            teams_data = {}
+            for tname, tdata in team_analysis.items():
+                teams_data[tname] = {
+                    "total_kills": tdata.get("total_kills", 0),
+                    "total_deaths": tdata.get("total_deaths", 0),
+                    "win": bool(tdata.get("win"))
+                }
 
-            # Instructions for model — explicit and strict
-            parts.append("")
-            parts.append("请基于上述数据，严格返回一个单独的JSON对象（不要在前后添加任何多余文字）。")
-            parts.append("JSON必须包含字段：match_id, summary, overall_score(0-100), key_moments(list), influencers(list of objects), player_insights(object)。")
-            parts.append("对每个influencer对象，必须包含：summoner_name, role, label（carried|fed|trolling|neutral）, reason, impact_score(-100~100), confidence(0-100)。")
-            parts.append("请用中文短句给出reason和summary。尽量保持JSON紧凑。")
-            parts.append("如果无法判断某玩家，使用label=\"neutral\"并给出简短说明。")
+            # 构建完整数据对象
+            data = {
+                "match_id": match_id,
+                "game_duration": game_duration,
+                "game_mode": game_mode,
+                "players": players_data,
+                "teams": teams_data
+            }
 
-            return "\n".join(parts)
+            # 使用json模块格式化数据，确保格式正确
+            import json
+            formatted_data = json.dumps(data, ensure_ascii=False, indent=2)
+
+            # 构建提示词
+            prompt_parts = [
+                "数据如下（JSON）：",
+                formatted_data,
+                "",
+                "请基于上述数据，严格返回一个单独的JSON对象（不要在前后添加任何多余文字）。",
+                "JSON必须包含字段：match_id, summary, overall_score(0-100), key_moments(list), influencers(list of objects), player_insights(object)。",
+                "对每个influencer对象，必须包含：summoner_name, role, label（carried|fed|trolling|neutral）, reason, impact_score(-100~100), confidence(0-100)。",
+                "请用中文短句给出reason和summary。尽量保持JSON紧凑。",
+                "如果无法判断某玩家，使用label=\"neutral\"并给出简短说明。"
+            ]
+
+            return "\n".join(prompt_parts)
 
         except Exception as e:
             self.logger.error(f"提示词生成失败: {str(e)}")

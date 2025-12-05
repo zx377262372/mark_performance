@@ -25,23 +25,27 @@ class TestGameAnalyzer:
             'kda': 10,
             'gold_per_minute': 500,
             'damage_per_minute': 1500,
-            'vision_score': 60,
-            'objective_control': 10
+            'vision_per_minute': 5,
+            'cs_per_minute': 10,
+            'kill_participation': 0.8,
+            'damage_share': 0.3
         }
-        score = self.analyzer._calculate_performance_score(metrics)
-        assert score == 100
-        
+        score = self.analyzer._calculate_performance_score(metrics, "UNKNOWN")
+        assert 80 <= score <= 90
+    
     def test_calculate_performance_score_average(self):
         """测试平均表现评分"""
         metrics = {
             'kda': 2.5,
             'gold_per_minute': 250,
             'damage_per_minute': 500,
-            'vision_score': 20,
-            'objective_control': 2
+            'vision_per_minute': 1,
+            'cs_per_minute': 5,
+            'kill_participation': 0.5,
+            'damage_share': 0.15
         }
-        score = self.analyzer._calculate_performance_score(metrics)
-        assert 50 <= score <= 70
+        score = self.analyzer._calculate_performance_score(metrics, "UNKNOWN")
+        assert 50 <= score <= 60
         
     def test_analyze_player_valid_data(self):
         """测试有效玩家数据分析"""

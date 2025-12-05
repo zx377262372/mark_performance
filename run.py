@@ -1,5 +1,3 @@
-# 创建 run.py
-cat > run.py << 'EOF'
 #!/usr/bin/env python3
 """
 英雄联盟对局复盘分析系统 - 运行脚本
@@ -24,4 +22,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-EOF

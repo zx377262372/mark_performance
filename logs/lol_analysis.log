@@ -1,0 +1,5 @@
+2025-12-06 00:16:17 - main - main - INFO - 开始英雄联盟对局复盘分析...
+2025-12-06 00:16:17 - main - process_summoner - INFO - 分析召唤师: test_summoner
+2025-12-06 00:16:17 - src.riot_api - _make_request - INFO - 发送API请求: https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-name/test_summoner, 参数: None
+2025-12-06 00:16:19 - src.riot_api - _make_request - ERROR - 客户端错误 401: https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-name/test_summoner
+2025-12-06 00:16:19 - main - main - INFO - 英雄联盟对局复盘分析完成
